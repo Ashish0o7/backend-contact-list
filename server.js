@@ -24,6 +24,10 @@ const expenseSchema = new mongoose.Schema({
   email: String,
   item: String,
   amount: Number,
+  date: {
+    type: Date,
+    default: Date.now,
+  },
 });
 
 const Contact = mongoose.model('Contact', contactSchema);
@@ -87,8 +91,8 @@ app.put('/contacts/:id', async (req, res) => {
 
 app.post('/expenses', async (req, res) => {
   try {
-    const { email, item, amount } = req.body;
-    const newExpense = new Expense({ email, item, amount });
+    const { email, item, amount, date } = req.body;
+    const newExpense = new Expense({ email, item, amount, date });
     const savedExpense = await newExpense.save();
     res.status(201).json(savedExpense);
   } catch (error) {
@@ -99,8 +103,18 @@ app.post('/expenses', async (req, res) => {
 
 app.get('/expenses', async (req, res) => {
   try {
-    const { email } = req.query;
-    const expenses = await Expense.find({ email });
+    const { email, month } = req.query;
+    const query = { email };
+
+    if (month) {
+      const startOfMonth = new Date(month);
+      startOfMonth.setUTCHours(0, 0, 0, 0);
+      const endOfMonth = new Date(month);
+      endOfMonth.setUTCHours(23, 59, 59, 999);
+      query.date = { $gte: startOfMonth, $lte: endOfMonth };
+    }
+
+    const expenses = await Expense.find(query);
     res.json(expenses);
   } catch (error) {
     console.error('Error fetching expenses:', error);
@@ -122,11 +136,11 @@ app.delete('/expenses/:id', async (req, res) => {
 app.put('/expenses/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { item, amount } = req.body;
+    const { item, amount, date } = req.body;
     const updatedExpense = await Expense.findByIdAndUpdate(
-        id,
-        { item, amount },
-        { new: true }
+      id,
+      { item, amount, date },
+      { new: true }
     );
     if (!updatedExpense) {
       return res.status(404).json({ error: 'Expense not found' });
@@ -137,7 +151,6 @@ app.put('/expenses/:id', async (req, res) => {
     res.status(500).json({ error: 'Failed to update expense' });
   }
 });
-
 app.listen(3001, () => {
   console.log('Server is running on port 3001');
 });
